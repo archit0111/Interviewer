@@ -1,4 +1,4 @@
-export interface SkillType {
+export interface ISkill {
   _id: string;
   slug: string;
   label: string;

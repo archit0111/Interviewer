@@ -6,7 +6,7 @@ const skillSchema = new mongoose.Schema({
     icon: { type: String, default: "💡" },
     group: { type: String, default: "General" },
     order: { type: Number, default: 100 },
-    description: { type: String, trim: true }
+    description: { type: String, trim: true },
 },{timestamps:true});
 
 const Skill = mongoose.model("skill", skillSchema,"skills");
