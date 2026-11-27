@@ -6,10 +6,11 @@ import { IQuestion } from "@/types/question";
 import { ForwardIcon, Mic } from "lucide-react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useEffect, useState } from "react";
+import { IResult } from "@/types/results";
 
 const DURATIONS = [
     { min: 5, label: "Quick check", questions: "3 to 5 " },
-    { min: 10, label: "Warm-up", questions: "3 to 5 " },
+    { min: 10, label: "Warm-up", questions: "5 to 10 " },
     { min: 15, label: "Standard", questions: "10 to 15 " },
     { min: 30, label: "Full round", questions: "15 to 25 " },
 ];
@@ -25,7 +26,9 @@ export default function Interviewroom() {
     const [questions, setQuestions] = useState<IQuestion[]>([]);
     const [currentQuestion, setCurrentQuestion] = useState<IQuestion>();
     const [timeTaken, setTimeTaken] = useState("");
-    const { transcript, interim, listening, supported, error, start, stop, reset } = useSpeechToText("en-IN");
+    const [errorMsg, setErrorMsg] = useState<string>("");
+    const [results, setResults] = useState<IResult[]>([]);
+    const { transcript, interim, listening, error, start, stop, reset } = useSpeechToText("en-IN");
 
     //for fetching skills
     useEffect(() => {
@@ -84,12 +87,33 @@ export default function Interviewroom() {
     }
 
     useEffect(() => {
-        const nextQuestion = () => {
-            if (!questions || quesCount === 0) return;
+        const nextQuestion = async () => {
+            if (!questions || quesCount === 0 ||!transcript) return;
+            
+            reset();
+
+            //for next Question
             if (quesCount > questions.length) {
                 return
             } else {
                 setCurrentQuestion(questions[quesCount])
+            }
+            
+            //for evaluation of current answer
+            try {
+                const res = await fetch('/api/interview/evaluateAnswer', {
+                    "method": "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: currentQuestion?.question, answer: transcript })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    console.error("Error occered in evaluating the question!",data.error);
+                    return
+                }
+                setResults((prev) => [...prev, data.result]);
+            } catch (e) {
+                console.error("Error in evaluation", e);
             }
         };
         nextQuestion();
@@ -161,6 +185,9 @@ export default function Interviewroom() {
                 {phase === "starting" ? <div className="flex justify-center bg-blue-100 m-10 rounded-3xl h-50 items-center">
                     <div className="font-bold text-blue-950 flex items-center gap-1"><div className="rounded-full border-4 border-blue-950 border-t-transparent animate-spin w-6 h-6"></div>Loading...</div>
                 </div> : null}
+                {phase === "started" ? errorMsg !== "" ? <div className="flex justify-center text-red-500 border-2 bg-red-300/65 border-red-500/45 m-10 rounded-3xl h-50 items-center">
+                    <div className="font-bold lg:text-lg  rounded-2xl min-h-[75%] min-w-[80%] justify-center bg-white/50 flex items-center gap-1">{errorMsg}</div>
+                </div> : null : null}
                 <section className={`${phase !== "started" ? "hidden" : "grid"} m-4 mt-[-40] lg:m-8 p-1`}>
                     <div className="bg-blue-100 flex justify-between px-4 rounded-2xl h-17 items-center">
                         <div className="flex justify-between items-center">
@@ -188,25 +215,31 @@ export default function Interviewroom() {
                                 className="w-[60%] h-[60%] object-contain"
                             />
                         </div>
-                        <div className="bg-blue-100 px-4 mt-10 py-2 rounded-2xl">
+                        <div className="bg-blue-100 px-4 mt-10 py-4 rounded-2xl">
                             <div className="p-2 m-1 flex mb-15">
                                 <p className="text-lg w-full">
                                     <span className="pr-1 font-semibold">
-                                        Q{quesCount+1}.
-                                        </span>
-                                        {currentQuestion?.question}</p>
+                                        Q{quesCount + 1}.
+                                    </span>
+                                    {currentQuestion?.question}</p>
                             </div>
+
+                            {/**transcript section */}
+
                             <div>
-                                <p className="min-h-24 rounded-xl border p-4">
+                                {!error?<p className="min-h-24 rounded-xl border-2 bg-white/35 border-slate-300 p-4">
                                     {transcript}
-                                    <span className="text-gray-400 ">{interim}</span>
-                                </p>
+                                    <span className="text-gray-400">{transcript ||interim?interim:"Take a deep Breath then start telling answer.."}</span>
+                                </p>:
+                                <p className="min-h-12 text-red-500 rounded-xl border-2 bg-red-400/25 border-red-300 p-4">
+                                    {error}
+                                </p>}
                             </div>
                             <div className="flex gap-[5%] items-center sm:gap-[50%] justify-center py-4">
                                 <div>
                                     <button
                                         onClick={listening ? () => saveAns() : start}
-                                        className={`${listening ? "" : ""}flex items-center hover:shadow-lg shadow-blue-950/50 gap-1 px-3 lg:px-5 lg:p-4 text-blue-950/95 bg-white/95 border-2 border-blue-950/75 hover:border-2 hover:border-blue-950 rounded-xl p-2`}>
+                                        className={`${listening ? "shadow-lg animate-pulse" : ""} justify-center flex items-center hover:shadow-lg shadow-blue-950/50 gap-1 px-3 lg:px-5 lg:p-4 text-blue-950/95 bg-white/95 border-2 border-blue-950/75 hover:border-2 hover:border-blue-950 rounded-xl p-2`}>
                                         <Mic size={20} className={listening ? "text-blue-950 animate-pulse" : ""} />
                                         <span className="lg:text-lg text-sm font-semibold">{listening ? "Listening..." : "Start telling answer"}</span>
                                     </button>
@@ -230,8 +263,25 @@ export default function Interviewroom() {
                                 <div>{currentQuestion?.expectedSeconds}<span className="pl-0.5">sec</span></div>
                             </div>
                         </div>
+                        <div>
+                        </div>
                     </div>
                 </section>
+                            <div className="min-h-24 rounded-xl border-2 bg-white/35 border-slate-300 p-4">
+                                {results.map((item, index) => (
+                                    <div key={index} className="border p-4 rounded mb-4">
+                                        <h3 className="font-bold">Q: {item.question}</h3>
+                                        <p>A: {item.answer}</p>
+
+                                        {/* Render individual properties, NOT {item} */}
+                                        <p>Skill ({item.skillCartegory}): {item.skillScore}/10</p>
+                                        <p>English ({item.englishLevel}): {item.englishScore}/10</p>
+                                        <p>Confidence: {item.confidencePercentage}% ({item.tone})</p>
+                                        <p>Summary: {item.summary}</p>
+                                    </div>
+                                ))}
+                                <span className="text-gray-400">{interim}</span>
+                            </div>
             </div>
             <Footer />
         </>

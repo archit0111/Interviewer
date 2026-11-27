@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 
 export async function POST(req: NextRequest, res: NextResponse) {
+    
     function shuffleArray<T>(array: T[]): T[] {
         const shuffled = [...array]; // Create a copy so original arrays stay untouched
         for (let i = shuffled.length - 1; i > 0; i--) {
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
         if (!skills || !duration) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
+
         const minutes = Number(duration);
 
         const cleanSkills: string[] = Array.isArray(skills) ? [...new Set<string>(skills.map((s) => String(s).toLowerCase().trim()))] : [];
@@ -43,10 +45,10 @@ export async function POST(req: NextRequest, res: NextResponse) {
             },
             {
                 $facet: {
-                    easy: [{ $match: { category: "technical", difficulty: "easy" } }, { $sample: { size: (minutes - Math.round(Number(duration) / 3)) } }],
-                    medium: [{ $match: { category: "technical", difficulty: "medium" } }, { $sample: { size: (minutes - 3) } }],
-                    hard: [{ $match: { category: "technical", difficulty: "hard" } }, { $sample: { size: (minutes - 3) } }],
-                    behavioral: [{ $match: { category: "technical" } }, { $sample: { size: (minutes - 4) } }]
+                    easy: [{ $match: { category: "technical", difficulty: "easy" } }, { $sample: { size: (minutes<10?3:5) } }],
+                    medium: [{ $match: { category: "technical", difficulty: "medium" } }, { $sample: { size: (minutes>10?8:2) } }],
+                    hard: [{ $match: { category: "technical", difficulty: "hard" } }, { $sample: { size: (minutes<10?1:4) } }],
+                    behavioral: [{ $match: { category: "behavioral" } }, { $sample: { size: (minutes<10?1:2) } }]
                 }
             }
         ]);
