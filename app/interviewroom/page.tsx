@@ -7,6 +7,7 @@ import { ForwardIcon, Mic } from "lucide-react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useEffect, useState } from "react";
 import { IResult } from "@/types/results";
+import { IEvaluation } from "@/types/interviewResult";
 
 const DURATIONS = [
     { min: 5, label: "Quick check", questions: "3 to 5 " },
@@ -25,12 +26,17 @@ export default function Interviewroom() {
     const [starting, setStarting] = useState(false);
     const [questions, setQuestions] = useState<IQuestion[]>([]);
     const [currentQuestion, setCurrentQuestion] = useState<IQuestion>();
-    const [timeTaken, setTimeTaken] = useState("");
     const [errorMsg, setErrorMsg] = useState<string>("");
     const [results, setResults] = useState<IResult[]>([]);
     const { transcript, interim, listening, error, start, stop, reset } = useSpeechToText("en-IN");
+    const [totalTimeLeft, setTotalTimeLeft] = useState(5 * 60);
+    const [evaluating,setEvaluating]=useState(false);
+    const [allEvaluated, setAllEvaluated] = useState(false);
+    const [overallEvaluation, setOverallEvaluation] = useState<IEvaluation>();
+
 
     //for fetching skills
+
     useEffect(() => {
         const fetchSkills = async () => {
             try {
@@ -45,15 +51,24 @@ export default function Interviewroom() {
     }, []);
 
     //to select the skills
+
     const handleSelect = (slug: string) => {
         setSelected((prev) =>
             prev.includes(slug)
                 ? prev.filter((item) => item !== slug)
                 : [...prev, slug])
+    };
+
+    useEffect(()=>{
+        
+    if(!error){
+        setErrorMsg(error);
     }
+    },[error]);
 
 
     //runs when user clicks on start interview
+
     const handleStartInterview = async () => {
         setPhase("starting");
         setStarting(true);
@@ -82,25 +97,47 @@ export default function Interviewroom() {
         }
     }
 
+    //For Starting the interview
+
     const intitializeInterview = () => {
         setQuesCount(0);
+        setTotalTimeLeft(duration * 60);
+        const totalTime = setInterval(() => {
+            setTotalTimeLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(totalTime);
+                    handleSubmit(); //submit interview becuse time is over
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const formatTime = (secs: number) => {
+        const min = Math.floor(secs / 60);
+        const sec = secs % 60;
+        return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
     }
+
+    //for submittion of current question and to evaluate it
 
     useEffect(() => {
         const nextQuestion = async () => {
-            if (!questions || quesCount === 0 ||!transcript) return;
-            
+            if (!questions || quesCount === 0 || !transcript) return;
+
             reset();
 
             //for next Question
             if (quesCount > questions.length) {
                 return
             } else {
-                setCurrentQuestion(questions[quesCount])
+                setCurrentQuestion(questions[quesCount]);
             }
             
             //for evaluation of current answer
             try {
+                setEvaluating(true);
                 const res = await fetch('/api/interview/evaluateAnswer', {
                     "method": "POST",
                     headers: { 'Content-Type': 'application/json' },
@@ -108,9 +145,10 @@ export default function Interviewroom() {
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    console.error("Error occered in evaluating the question!",data.error);
+                    console.error("Error occered in evaluating the question!", data.error);
                     return
                 }
+                setEvaluating(false);
                 setResults((prev) => [...prev, data.result]);
             } catch (e) {
                 console.error("Error in evaluation", e);
@@ -119,11 +157,45 @@ export default function Interviewroom() {
         nextQuestion();
     }, [quesCount]);
 
-    const handleSubmit = () => {
 
+    //handle Interview Submittion
+
+    const handleSubmit = async () => {
+        alert("submitted")
+        setQuesCount((prev) => prev + 1);
+        setPhase("done");
+        setAllEvaluated(true);
+        stop();
     }
 
+    //for overall evaluation of Interview
+
+    useEffect(()=>{
+        if(!allEvaluated || evaluating){
+            return
+        }
+        const evaluateInterview = async () => {
+        try {
+            const res = await fetch('/api/interview/evaluateInterview', {
+                "method": "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ results })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                console.error("Error occered in evaluating the Interview!", data.error);
+                return
+            }
+            setOverallEvaluation(data.overallResult);
+        } catch (e) {
+            console.error("Error in evaluation", e);
+        }
+    };
+    evaluateInterview();
+    },[allEvaluated,evaluating]);
+
     //for saving transcription
+
     const saveAns = () => {
         stop();
         console.log("Answer text to store:", transcript);
@@ -200,8 +272,8 @@ export default function Interviewroom() {
                                 <p className="font-semibold text-slate-500 mt-[-7] text-sm">Interview Room</p>
                             </div>
                         </div>
-                        <div className={`bg-white/95 border-slate-300 rounded-xl px-2 py-2 opacity-50 hover:opacity-85 border-2`}>
-                            Time Left : <span>02:03</span>
+                        <div className={`${totalTimeLeft < 45 ? "bg-red-400/85 border-red-300 text-red-800" : "bg-white/95 border-slate-300 "} rounded-xl px-2 py-2 opacity-50 hover:opacity-85 border-2`}>
+                            Time Left : <span>{formatTime(totalTimeLeft)}</span>
                         </div>
                     </div>
                     <div className="relative overflow-hidden">
@@ -227,13 +299,13 @@ export default function Interviewroom() {
                             {/**transcript section */}
 
                             <div>
-                                {!error?<p className="min-h-24 rounded-xl border-2 bg-white/35 border-slate-300 p-4">
+                                {!error ? <p className="min-h-24 rounded-xl border-2 bg-white/35 border-slate-300 p-4">
                                     {transcript}
-                                    <span className="text-gray-400">{transcript ||interim?interim:"Take a deep Breath then start telling answer.."}</span>
-                                </p>:
-                                <p className="min-h-12 text-red-500 rounded-xl border-2 bg-red-400/25 border-red-300 p-4">
-                                    {error}
-                                </p>}
+                                    <span className="text-gray-400">{transcript || interim ? interim : "Take a deep Breath then start telling answer.."}</span>
+                                </p> :
+                                    <p className="min-h-12 text-red-500 rounded-xl border-2 bg-red-400/25 border-red-300 p-4">
+                                        {error}
+                                    </p>}
                             </div>
                             <div className="flex gap-[5%] items-center sm:gap-[50%] justify-center py-4">
                                 <div>
@@ -252,36 +324,72 @@ export default function Interviewroom() {
                                         <span className="lg:text-lg text-sm font-semibold">Next Question</span>
                                     </button> :
                                         <button
-                                            onSubmit={handleSubmit}
+                                            onClick={handleSubmit}
                                             className="flex items-center gap-1 px-3 text-white hover:shadow-lg lg:px-5 lg:p-4 bg-blue-800 border-2 border-blue-800 hover:border-2 hover:border-blue-950 hover:shadow-blue-950 rounded-xl  p-2">
                                             <span className="lg:text-lg text-sm font-semibold">Submit</span>
                                         </button>}
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-1 text-sm px-2 font-semibold text-slate-500">
+                            {/* <div className="flex justify-end gap-1 text-sm px-2 font-semibold text-slate-500">
                                 <p>Time on this question:</p>
                                 <div>{currentQuestion?.expectedSeconds}<span className="pl-0.5">sec</span></div>
-                            </div>
+                            </div> */}
                         </div>
                         <div>
                         </div>
                     </div>
                 </section>
-                            <div className="min-h-24 rounded-xl border-2 bg-white/35 border-slate-300 p-4">
-                                {results.map((item, index) => (
-                                    <div key={index} className="border p-4 rounded mb-4">
-                                        <h3 className="font-bold">Q: {item.question}</h3>
-                                        <p>A: {item.answer}</p>
 
-                                        {/* Render individual properties, NOT {item} */}
-                                        <p>Skill ({item.skillCartegory}): {item.skillScore}/10</p>
-                                        <p>English ({item.englishLevel}): {item.englishScore}/10</p>
-                                        <p>Confidence: {item.confidencePercentage}% ({item.tone})</p>
-                                        <p>Summary: {item.summary}</p>
-                                    </div>
-                                ))}
-                                <span className="text-gray-400">{interim}</span>
+                {/**After Submittion of Interview */}
+                <section className={`${phase !== "done" ? "hidden" : "grid"} m-4 mt-10 lg:m-8 p-1`}>
+                    <h1 className="font-bold text-blue-950 text-xl sm:text-2xl mb-5">
+                        Results
+                    </h1>
+
+                    <div className="h-max w-full bg-blue-100 rounded-2xl p-4 ">
+                        <div className="min-h-24 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
+
+                        {results.length===0?
+                        <div className="flex justify-center">You not given any answers...</div>
+                        :null}
+                            {results.map((item, index) => (
+                                <div key={index} className="border border-blue-950 p-4 rounded mb-4">
+                                    <h3 className="font-bold">Ques: {item.question}</h3>
+                                    <p className="font-light mb-2"><span className="font-bold">Ans:</span> {item.answer}</p>
+                                    <p><span className="font-semibold">Skill ({item.skillCartegory}):</span> {item.skillScore}/5</p>
+                                    <p><span className="font-semibold">English ({item.englishLevel}):</span> {item.englishScore}/5</p>
+                                    <p><span className="font-semibold">Confidence:</span> {item.confidencePercentage}%</p>
+                                    <p><span className="font-semibold">Tone:</span> {item.tone}</p>
+                                    <p><span className="font-semibold">Better Answer:</span> {item.improvedAnswer}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {phase === "done" ? <div>
+                        <h1 className="font-bold text-blue-950 text-xl sm:text-2xl mt-10 ">
+                            Overall Performance
+                        </h1>
+                        {!overallEvaluation ?
+                            <div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
+                                <div className="min-h-24 flex justify-center items-center gap-2 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
+                                    <div className="rounded-full border-4 border-blue-950 border-t-transparent animate-spin w-6 h-6"></div>Evaluating Results...
+                                </div>
                             </div>
+                            : null}
+                        {overallEvaluation?<div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
+                            <div className="min-h-24 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
+                                <div className="border border-blue-950 p-4 rounded mb-4">
+                                    <p className="font-light mb-2"><span className="font-bold">performanceLevel:</span> {overallEvaluation.performanceLevel}</p>
+                                    <p><span className="font-semibold">English ({overallEvaluation.englishLevel}):</span> {overallEvaluation.englishScore}/5</p>
+                                    <p><span className="font-semibold">Confidence:</span> {overallEvaluation.confidencePercentage}%</p>
+                                    <p><span className="font-semibold">Tone:</span> {overallEvaluation.tone}</p>
+                                    <p><span className="font-semibold">Feedback:</span> {overallEvaluation.feedback}</p>
+                                </div>
+                            </div>
+                        </div>:null}
+                    </div> : null}
+                </section>
+
             </div>
             <Footer />
         </>

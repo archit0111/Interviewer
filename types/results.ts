@@ -1,21 +1,14 @@
+export type EnglishLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+export type ToneQuality = "average" | "better" | "best";
+
 export interface IResult {
-  question: string;
-  answer: string;
-
-  skillCartegory: string; 
-  skillScore: number;
-  skillReasoning: string; 
-
-  englishScore: number;
-  englishLevel: string;
-  englishReasoning: string;
-
-  confidencePercentage: number;
-  confidenceReasoning: string;
-  tone: string;
-  toneReasoning: string;
-
-  strengths: string[];
-  improvements: string[];
-  summary: string;
+    question: string,
+    answer: string,
+    skillCartegory:string,
+    skillScore: number;
+    englishScore: number;
+    englishLevel: EnglishLevel;
+    confidencePercentage: number;
+    tone: ToneQuality;
+    improvedAnswer: string;
 }
