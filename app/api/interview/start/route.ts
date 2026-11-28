@@ -55,19 +55,19 @@ export async function POST(req: NextRequest, res: NextResponse) {
                 $facet: {
                     easy: [
                         { $match: { category: "technical", difficulty: "easy" } },
-                        { $limit: minutes < 10 ? 6 : 8 },
+                        { $limit: minutes < 10 ? 3 : 5 },
                     ],
                     medium: [
                         { $match: { category: "technical", difficulty: "medium" } },
-                        { $limit: minutes > 10 ? 11 : 5 },
+                        { $limit: minutes > 10 ? 8 : 2 },
                     ],
                     hard: [
                         { $match: { category: "technical", difficulty: "hard" } },
-                        { $limit: minutes < 10 ? 4 : 7 },
+                        { $limit: minutes < 10 ? 2 : 4 },
                     ],
                     behavioral: [
                         { $match: { category: "behavioral" } },
-                        { $limit: onlyHr ? minutes : minutes < 10 ? 3 : 4 },
+                        { $limit: onlyHr ? minutes : minutes < 10 ? 1 : 4 },
                     ],
                 },
             }

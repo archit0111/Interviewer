@@ -8,6 +8,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useEffect, useState } from "react";
 import { IResult } from "@/types/results";
 import { IEvaluation } from "@/types/interviewResult";
+import Link from "next/link";
 
 const DURATIONS = [
     { min: 5, label: "Quick check", questions: "3 to 5 " },
@@ -30,7 +31,7 @@ export default function Interviewroom() {
     const [results, setResults] = useState<IResult[]>([]);
     const { transcript, interim, listening, error, start, stop, reset } = useSpeechToText("en-IN");
     const [totalTimeLeft, setTotalTimeLeft] = useState(5 * 60);
-    const [evaluating,setEvaluating]=useState(false);
+    const [evaluating, setEvaluating] = useState(false);
     const [allEvaluated, setAllEvaluated] = useState(false);
     const [overallEvaluation, setOverallEvaluation] = useState<IEvaluation>();
 
@@ -59,12 +60,12 @@ export default function Interviewroom() {
                 : [...prev, slug])
     };
 
-    useEffect(()=>{
-        
-    if(!error){
-        setErrorMsg(error);
-    }
-    },[error]);
+    useEffect(() => {
+
+        if (!error) {
+            setErrorMsg(error);
+        }
+    }, [error]);
 
 
     //runs when user clicks on start interview
@@ -132,11 +133,11 @@ export default function Interviewroom() {
             } else {
                 setCurrentQuestion(questions[quesCount]);
             }
-            
+
             if (!questions || quesCount === 0 || !transcript) return;
-            
+
             reset();
-            
+
             //for evaluation of current answer
             try {
                 setEvaluating(true);
@@ -172,29 +173,29 @@ export default function Interviewroom() {
 
     //for overall evaluation of Interview
 
-    useEffect(()=>{
-        if(!allEvaluated || evaluating){
+    useEffect(() => {
+        if (!allEvaluated || evaluating) {
             return
         }
         const evaluateInterview = async () => {
-        try {
-            const res = await fetch('/api/interview/evaluateInterview', {
-                "method": "POST",
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ results })
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                console.error("Error occered in evaluating the Interview!", data.error);
-                return
+            try {
+                const res = await fetch('/api/interview/evaluateInterview', {
+                    "method": "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ results })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    console.error("Error occered in evaluating the Interview!", data.error);
+                    return
+                }
+                setOverallEvaluation(data.overallResult);
+            } catch (e) {
+                console.error("Error in evaluation", e);
             }
-            setOverallEvaluation(data.overallResult);
-        } catch (e) {
-            console.error("Error in evaluation", e);
-        }
-    };
-    evaluateInterview();
-    },[allEvaluated,evaluating]);
+        };
+        evaluateInterview();
+    }, [allEvaluated, evaluating]);
 
     //for saving transcription
 
@@ -343,7 +344,17 @@ export default function Interviewroom() {
                 </section>
 
                 {/**After Submittion of Interview */}
+
+                {phase === 'done' ?
+                    <div className="justify-center flex items-center p-4 mt-10">
+                        <div className="bg-blue-100 shadow-2xl shadow-blue-950 border-2 border-blue-800 m-4 w-full flex items-center justify-center min-h-30 rounded-2xl">
+                            <p className="text-blue-950 text-sm sm:text-xl">Congratulations!🥳 Your Interview is Completed.</p>
+                        </div>
+                    </div>
+                    : null}
+
                 <section className={`${phase !== "done" ? "hidden" : "grid"} m-4 mt-10 lg:m-8 p-1`}>
+
                     <h1 className="font-bold text-blue-950 text-xl sm:text-2xl mb-5">
                         Results
                     </h1>
@@ -351,9 +362,9 @@ export default function Interviewroom() {
                     <div className="h-max w-full bg-blue-100 rounded-2xl p-4 ">
                         <div className="min-h-24 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
 
-                        {results.length===0?
-                        <div className="flex justify-center">You not given any answers...</div>
-                        :null}
+                            {results.length === 0 ?
+                                <div className="flex justify-center">You not given any answers...</div>
+                                : null}
                             {results.map((item, index) => (
                                 <div key={index} className="border border-blue-950 p-4 rounded mb-4">
                                     <h3 className="font-bold">Ques: {item.question}</h3>
@@ -371,14 +382,21 @@ export default function Interviewroom() {
                         <h1 className="font-bold text-blue-950 text-xl sm:text-2xl mt-10 ">
                             Overall Performance
                         </h1>
-                        {!overallEvaluation ?
+                        {evaluating ?
                             <div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
                                 <div className="min-h-24 flex justify-center items-center gap-2 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
                                     <div className="rounded-full border-4 border-blue-950 border-t-transparent animate-spin w-6 h-6"></div>Evaluating Results...
                                 </div>
                             </div>
                             : null}
-                        {overallEvaluation?<div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
+
+                        <div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
+                            {results.length === 0 ?
+                                <div className="flex justify-center">You not given any answers...</div>
+                                : null}
+                        </div>
+
+                        {overallEvaluation ? <div className="h-max w-full bg-blue-100 rounded-2xl p-4 mt-5">
                             <div className="min-h-24 rounded-xl border-2 bg-white/65 border-slate-300 p-4">
                                 <div className="border border-blue-950 p-4 rounded mb-4">
                                     <p className="font-light mb-2"><span className="font-bold">performanceLevel:</span> {overallEvaluation.performanceLevel}</p>
@@ -388,12 +406,22 @@ export default function Interviewroom() {
                                     <p><span className="font-semibold">Feedback:</span> {overallEvaluation.feedback}</p>
                                 </div>
                             </div>
-                        </div>:null}
+                        </div> : null}
                     </div> : null}
+
+                    {phase === 'done' ?
+                        <div className="justify-center flex items-center p-4 mt-25">
+                            <Link href={'/dashboard'} className="p-3 bg-amber-300 rounded-2xl px-4 hover:bg-amber-500/85 focus:bg-green-500">
+                                <span className="font-semibold text-black/95">Go to Dashboard</span>
+                            </Link>
+                        </div>
+                        : null}
                 </section>
 
             </div>
-            <Footer />
+            {phase === 'done' ?
+            <Footer/>
+            :null}
         </>
     )
 }

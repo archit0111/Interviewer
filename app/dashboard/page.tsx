@@ -179,19 +179,6 @@ export default function Dashboard() {
               <p className="mt-2 text-3xl font-semibold tracking-tight text-blue-950">N/A</p>
             </div>
           </section>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-6 lg:col-span-2">
-              <section className={card}>
-                <div className="flex items-baseline justify-between">
-                  <h2 className="text-lg font-semibold text-blue-950">Your progress</h2>
-                  <span className={`text-sm ${muted}`}>Last 8 sessions</span>
-                </div>
-                <div className="mt-3 text-[#14173F]"><Trend data={TREND} /></div>
-              </section>
-            </div>
-          </div>
-
          
         </div>
       </main>
