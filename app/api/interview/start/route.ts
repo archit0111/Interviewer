@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 
 export async function POST(req: NextRequest, res: NextResponse) {
-    
+
     function shuffleArray<T>(array: T[]): T[] {
         const shuffled = [...array]; // Create a copy so original arrays stay untouched
         for (let i = shuffled.length - 1; i > 0; i--) {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
         }
         return shuffled;
     }
-    
+
     try {
         connectDB();
         const body = await req.json();
@@ -22,6 +22,12 @@ export async function POST(req: NextRequest, res: NextResponse) {
         }
 
         const minutes = Number(duration);
+
+        let onlyHr = false;
+
+        if (skills.length === 1 && skills[0] === "hr") {
+            onlyHr = true;
+        }
 
         const cleanSkills: string[] = Array.isArray(skills) ? [...new Set<string>(skills.map((s) => String(s).toLowerCase().trim()))] : [];
 
@@ -43,13 +49,27 @@ export async function POST(req: NextRequest, res: NextResponse) {
                     ]
                 }
             },
+            { $addFields: { randomOrder: { $rand: {} } } },
+            { $sort: { randomOrder: 1 } },
             {
                 $facet: {
-                    easy: [{ $match: { category: "technical", difficulty: "easy" } }, { $sample: { size: (minutes<10?3:5) } }],
-                    medium: [{ $match: { category: "technical", difficulty: "medium" } }, { $sample: { size: (minutes>10?8:2) } }],
-                    hard: [{ $match: { category: "technical", difficulty: "hard" } }, { $sample: { size: (minutes<10?1:4) } }],
-                    behavioral: [{ $match: { category: "behavioral" } }, { $sample: { size: (minutes<10?1:2) } }]
-                }
+                    easy: [
+                        { $match: { category: "technical", difficulty: "easy" } },
+                        { $limit: minutes < 10 ? 6 : 8 },
+                    ],
+                    medium: [
+                        { $match: { category: "technical", difficulty: "medium" } },
+                        { $limit: minutes > 10 ? 11 : 5 },
+                    ],
+                    hard: [
+                        { $match: { category: "technical", difficulty: "hard" } },
+                        { $limit: minutes < 10 ? 4 : 7 },
+                    ],
+                    behavioral: [
+                        { $match: { category: "behavioral" } },
+                        { $limit: onlyHr ? minutes : minutes < 10 ? 3 : 4 },
+                    ],
+                },
             }
         ]);
 

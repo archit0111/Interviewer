@@ -124,16 +124,18 @@ export default function Interviewroom() {
 
     useEffect(() => {
         const nextQuestion = async () => {
-            if (!questions || quesCount === 0 || !transcript) return;
-
-            reset();
 
             //for next Question
+
             if (quesCount > questions.length) {
                 return
             } else {
                 setCurrentQuestion(questions[quesCount]);
             }
+            
+            if (!questions || quesCount === 0 || !transcript) return;
+            
+            reset();
             
             //for evaluation of current answer
             try {
